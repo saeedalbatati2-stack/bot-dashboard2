@@ -1,11 +1,11 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
+const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
 const express = require('express');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent // ضروري لقراءة محتوى الرسائل والأوامر
+    GatewayIntentBits.GuildVoiceStates // ضروري جداً لدخول الروم الصوتي
   ]
 });
 
@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot is online 24/7!');
+  res.send('Voice Bot is online 24/7 in the voice channel!');
 });
 
 app.listen(PORT, () => {
@@ -24,82 +24,53 @@ app.listen(PORT, () => {
 });
 
 // ----------------------------------------------------
-// 2. قوائم الصور والأيدي
+// 2. إعدادات الروم الصوتي
 // ----------------------------------------------------
-const PREFIX = '!'; // بادئة الأوامر
+const VOICE_CHANNEL_ID = 'ضع_أيدي_الروم_الصوتي_هنا'; // أيدي الروم الصوتي
 
-const boysImages = [
-  'https://example.com/boy1.jpg',
-  'https://example.com/boy2.jpg'
-];
-
-const girlsImages = [
-  'https://example.com/girl1.jpg',
-  'https://example.com/girl2.jpg'
-];
-
-// أيدي الرومات للإرسال التلقائي كل 5 ثوانٍ
-const BOYS_CHANNEL_ID = 'ضع_أيدي_روم_العيال_هنا';
-const GIRLS_CHANNEL_ID = 'ضع_أيدي_روم_البنات_هنا';
-
-// ----------------------------------------------------
-// 3. نظام الأوامر (Command Handler)
-// ----------------------------------------------------
-client.on('messageCreate', async (message) => {
-  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-
-  // أمر طلب صورة ولد فوراً (!ولد أو !boy)
-  if (command === 'ولد' || command === 'boy') {
-    const randomPic = boysImages[Math.floor(Math.random() * boysImages.length)];
-    const embed = new EmbedBuilder()
-      .setImage(randomPic)
-      .setColor('#2b2d31');
-
-    return message.reply({ embeds: [embed] });
-  }
-
-  // أمر طلب صورة بنت فوراً (!بنت أو !girl)
-  if (command === 'بنت' || command === 'girl') {
-    const randomPic = girlsImages[Math.floor(Math.random() * girlsImages.length)];
-    const embed = new EmbedBuilder()
-      .setImage(randomPic)
-      .setColor('#2b2d31');
-
-    return message.reply({ embeds: [embed] });
-  }
-
-  // أمر التأكد من تشغيل البوت (!ping)
-  if (command === 'ping') {
-    return message.reply(`Pong! 🏓 (${client.ws.ping}ms)`);
-  }
-});
-
-// ----------------------------------------------------
-// 4. التشغيل التلقائي كل 5 ثوانٍ
-// ----------------------------------------------------
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  setInterval(async () => {
-    // إرسال تلقائي للعيال
-    const boysChannel = client.channels.cache.get(BOYS_CHANNEL_ID);
-    if (boysChannel && boysImages.length > 0) {
-      const randomPic = boysImages[Math.floor(Math.random() * boysImages.length)];
-      const embed = new EmbedBuilder().setImage(randomPic).setColor('#2b2d31');
-      boysChannel.send({ embeds: [embed] }).catch(() => {});
-    }
+  // دالة لدخول الروم الصوتي والبقاء فيه
+  async function connectToVoiceChannel() {
+    try {
+      const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
+      if (!channel) {
+        return console.log('❌ لم يتم العثور على الروم الصوتي! تأكد من الأيدي.');
+      }
 
-    // إرسال تلقائي للبنات
-    const girlsChannel = client.channels.cache.get(GIRLS_CHANNEL_ID);
-    if (girlsChannel && girlsImages.length > 0) {
-      const randomPic = girlsImages[Math.floor(Math.random() * girlsImages.length)];
-      const embed = new EmbedBuilder().setImage(randomPic).setColor('#2b2d31');
-      girlsChannel.send({ embeds: [embed] }).catch(() => {});
+      const connection = joinVoiceChannel({
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+        selfDeaf: true,  // وضع سماعات مغلقة (أفضل للبوتات)
+        selfMute: true   // وضع ميوت لنفسه
+      });
+
+      connection.on(VoiceConnectionStatus.Ready, () => {
+        console.log(`🟢 دخل البوت بنجاح إلى الروم الصوتي: ${channel.name}`);
+      });
+
+      // إعادة الاتصال تلقائياً إذا خرج أو حصل انقطاع
+      connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try {
+          await Promise.race([
+            entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+            entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+          ]);
+        } catch (error) {
+          console.log('⚠️ انقطع الاتصال بالروم، جاري إعادة المحاولة...');
+          connection.destroy();
+          setTimeout(connectToVoiceChannel, 5000); // محاولة إعادة الدخول بعد 5 ثوانٍ
+        }
+      });
+
+    } catch (error) {
+      console.error('خطأ أثناء محاولة دخول الروم الصوتي:', error);
     }
-  }, 5000);
+  }
+
+  connectToVoiceChannel();
 });
 
 client.login(process.env.TOKEN);
