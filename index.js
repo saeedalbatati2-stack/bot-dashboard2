@@ -26,7 +26,7 @@ app.listen(PORT, () => {
 // ----------------------------------------------------
 // 2. إعدادات الروم الصوتي
 // ----------------------------------------------------
-const VOICE_CHANNEL_ID = 'ضع_أيدي_الروم_الصوتي_هنا'; // أيدي الروم الصوتي
+const VOICE_CHANNEL_ID = 'https://discord.com/channels/1560818054315638957/1561057768834867371; // أيدي الروم الصوتي
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
