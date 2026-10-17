@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
 const express = require('express');
 
@@ -26,9 +26,22 @@ app.listen(PORT, () => {
 // ----------------------------------------------------
 // 2. إعدادات الروم الصوتي
 // ----------------------------------------------------
-const VOICE_CHANNEL_ID = '123456789012345678';
+const VOICE_CHANNEL_ID = '1561057768834867371';
+
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  // ----------------------------------------------------
+  // تعيين حالة البوت إلى Streaming
+  // ----------------------------------------------------
+  client.user.setPresence({
+    activities: [{
+      name: '24/7 Voice Channel', 
+      type: ActivityType.Streaming,
+      url: 'https://www.twitch.tv/discord' 
+    }],
+    status: 'online'
+  });
 
   // دالة لدخول الروم الصوتي والبقاء فيه
   async function connectToVoiceChannel() {
@@ -42,7 +55,7 @@ client.once('ready', async () => {
         channelId: channel.id,
         guildId: channel.guild.id,
         adapterCreator: channel.guild.voiceAdapterCreator,
-        selfDeaf: true,  // وضع سماعات مغلقة (أفضل للبوتات)
+        selfDeaf: true,  // وضع سماعات مغلقة
         selfMute: true   // وضع ميوت لنفسه
       });
 
