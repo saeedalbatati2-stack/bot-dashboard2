@@ -49,6 +49,7 @@ let BOY_CHANNEL_ID = '1561058994120826900';
 let GIRL_CHANNEL_ID = '1561058648216698890';  
 let ANIME_CHANNEL_ID = '1561059067919859763'; 
 
+// دالة جلب صور عشوائية مضمونة الشغل 100%
 async function getRandomImage(type) {
   try {
     if (type === 'anime') {
@@ -56,9 +57,12 @@ async function getRandomImage(type) {
       const data = await res.json();
       return data.url;
     } else if (type === 'boy') {
-      return `https://source.unsplash.com/featured/800x1000/?man,boy,portrait&sig=${Math.floor(Math.random() * 10000)}`;
+      const randomId = Math.floor(Math.random() * 1000);
+      return `https://picsum.photos/id/${randomId}/800/1000`;
     } else if (type === 'girl') {
-      return `https://source.unsplash.com/featured/800x1000/?woman,girl,portrait&sig=${Math.floor(Math.random() * 10000)}`;
+      const res = await fetch('https://api.waifu.pics/sfw/neko');
+      const data = await res.json();
+      return data.url;
     }
   } catch (err) {
     console.error(`خطأ في جلب صورة ${type}:`, err);
@@ -66,8 +70,34 @@ async function getRandomImage(type) {
   }
 }
 
+// دالة إنشاء الرسالة المرفق معها الأزرار (تنزيل، تعديل/تغيير، حذف)
+function createImageMessage(title, imgUrl, type) {
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setImage(imgUrl)
+    .setColor('#2b2d31')
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('📥 تنزيل')
+      .setStyle(ButtonStyle.Link)
+      .setURL(imgUrl),
+    new ButtonBuilder()
+      .setCustomId(`refresh_img_${type}`)
+      .setLabel('🔄 تغيير')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('delete_img_msg')
+      .setLabel('🗑️ حذف')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
 // ----------------------------------------------------
-// 3. حدث التشغيل، الدخول الصوتي، ونظام الصور التلقائي
+// 3. حدث التشغيل ونظام الصور التلقائي
 // ----------------------------------------------------
 client.once('ready', async () => {
   console.log(`🟢 تم تشغيل البوت بنجاح: ${client.user.tag}`);
@@ -111,37 +141,32 @@ client.once('ready', async () => {
   }
   connectToVoiceChannel();
 
+  // إرسال الصور تلقائياً كل 10 دقائق
   setInterval(async () => {
+    // 1. صور عيال
     if (BOY_CHANNEL_ID && BOY_CHANNEL_ID !== 'ضع_أيدي_روم_صور_العيال_هنا') {
       const ch = client.channels.cache.get(BOY_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('boy');
-        if (imgUrl) {
-          const embed = new EmbedBuilder().setTitle('📷 صورة اليوم (شباب)').setImage(imgUrl).setColor('#2b2d31');
-          ch.send({ embeds: [embed] }).catch(() => {});
-        }
+        if (imgUrl) ch.send(createImageMessage('📷 صورة اليوم (شباب)', imgUrl, 'boy')).catch(() => {});
       }
     }
 
+    // 2. صور بنات
     if (GIRL_CHANNEL_ID && GIRL_CHANNEL_ID !== 'ضع_أيدي_روم_صور_البنات_هنا') {
       const ch = client.channels.cache.get(GIRL_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('girl');
-        if (imgUrl) {
-          const embed = new EmbedBuilder().setTitle('📷 صورة اليوم (بنات)').setImage(imgUrl).setColor('#2b2d31');
-          ch.send({ embeds: [embed] }).catch(() => {});
-        }
+        if (imgUrl) ch.send(createImageMessage('📷 صورة اليوم (بنات)', imgUrl, 'girl')).catch(() => {});
       }
     }
 
+    // 3. صور أنمي
     if (ANIME_CHANNEL_ID && ANIME_CHANNEL_ID !== 'ضع_أيدي_روم_صور_الأنمي_هنا') {
       const ch = client.channels.cache.get(ANIME_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('anime');
-        if (imgUrl) {
-          const embed = new EmbedBuilder().setTitle('🎌 صورة اليوم (أنمي)').setImage(imgUrl).setColor('#2b2d31');
-          ch.send({ embeds: [embed] }).catch(() => {});
-        }
+        if (imgUrl) ch.send(createImageMessage('🎌 صورة اليوم (أنمي)', imgUrl, 'anime')).catch(() => {});
       }
     }
   }, 10 * 60 * 1000);
@@ -315,6 +340,28 @@ client.on('interactionCreate', async (interaction) => {
   
   if (interaction.isButton()) {
 
+    // زر تغيير الصورة فوراً
+    if (interaction.customId.startsWith('refresh_img_')) {
+      const type = interaction.customId.replace('refresh_img_', '');
+      await interaction.deferUpdate();
+      const newImgUrl = await getRandomImage(type);
+      if (newImgUrl) {
+        const title = type === 'boy' ? '📷 صورة اليوم (شباب)' : type === 'girl' ? '📷 صورة اليوم (بنات)' : '🎌 صورة اليوم (أنمي)';
+        const msgData = createImageMessage(title, newImgUrl, type);
+        await interaction.editReply(msgData);
+      }
+      return;
+    }
+
+    // زر حذف الصورة
+    if (interaction.customId === 'delete_img_msg') {
+      if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        return interaction.reply({ content: '❌ ليس لديك صلاحية حذف هذه الصورة.', ephemeral: true });
+      }
+      return interaction.message.delete().catch(() => {});
+    }
+
+    // أزرار التذاكر والتقديم
     if (interaction.customId === 'open_support_ticket') {
       const modal = new ModalBuilder()
         .setCustomId('support_reason_modal')
