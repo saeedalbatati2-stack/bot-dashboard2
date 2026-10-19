@@ -1,15 +1,15 @@
-{
-  "name": "voice-bot-247",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.14.1",
-    "@discordjs/voice": "^0.16.1",
-    "opusscript": "^0.1.1",
-    "ffmpeg-static": "^5.2.0",
-    "express": "^4.18.2"
+// 3. أمر الترحيب (!welcome @مستخدم)
+  if (command === 'welcome') {
+    if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
+    const member = message.mentions.members.first() || message.member;
+
+    const embed = new EmbedBuilder()
+      .setTitle('✨ مرحباً بك في السيرفر!')
+      .setDescription(`أهلاً بك يا ${member} في سيرفرنا، نتمنى لك قضاء وقت ممتع معنا! 🌹`)
+      .setColor('#2b2d31')
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 })) // صورة العضو بحجم واضح
+      .setImage('PASTE_IMAGE_URL_HERE') // ضع رابط الصورة المباشر هنا
+      .setTimestamp();
+
+    message.channel.send({ content: `${member}`, embeds: [embed] });
   }
-}
