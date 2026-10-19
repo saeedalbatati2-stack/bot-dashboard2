@@ -14,6 +14,7 @@ const {
   AttachmentBuilder
 } = require('discord.js');
 const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const express = require('express');
 
 const client = new Client({
@@ -49,7 +50,7 @@ let BOY_CHANNEL_ID = '1561058994120826900';
 let GIRL_CHANNEL_ID = '1561058648216698890';  
 let ANIME_CHANNEL_ID = '1561059067919859763'; 
 
-// دالة جلب صور عشوائية مضمونة الشغل 100%
+// دالة جلب صور عشوائية مضمونة
 async function getRandomImage(type) {
   try {
     if (type === 'anime') {
@@ -70,34 +71,59 @@ async function getRandomImage(type) {
   }
 }
 
-// دالة إنشاء الرسالة المرفق معها الأزرار (تنزيل، تعديل/تغيير، حذف)
-function createImageMessage(title, imgUrl, type) {
-  const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setImage(imgUrl)
-    .setColor('#2b2d31')
-    .setTimestamp();
+// دالة لدمج أفتار العضو داخل صورة البنر (Welcome)
+async function createWelcomeCard(member) {
+  try {
+    const canvas = createCanvas(1000, 700);
+    const ctx = canvas.getContext('2d');
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel('📥 تنزيل')
-      .setStyle(ButtonStyle.Link)
-      .setURL(imgUrl),
-    new ButtonBuilder()
-      .setCustomId(`refresh_img_${type}`)
-      .setLabel('🔄 تغيير')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('delete_img_msg')
-      .setLabel('🗑️ حذف')
-      .setStyle(ButtonStyle.Danger)
-  );
+    // تحميل صورة البنر المحلية
+    const background = await loadImage('./welcome.png');
+    ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-  return { embeds: [embed], components: [row] };
+    // تحميل صورة الأفاتار الخاصة بالعضو
+    const avatarURL = member.user.displayAvatarURL({ extension: 'png', size: 256 });
+    const avatar = await loadImage(avatarURL);
+
+    // إحداثيات وطريقة رسم الأفاتار بشكل دائري متداخل بأسفل البنر (حسب طلبك في الصور)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(280, 520, 110, 0, Math.PI * 2, true); // مكان ومقاس الدائرة
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatar, 170, 410, 220, 220);
+    ctx.restore();
+
+    return canvas.toBuffer('image/png');
+  } catch (e) {
+    console.error('خطأ في توليد صورة الترحيب:', e);
+    return null;
+  }
 }
 
+
+function createImageMessage(imgUrl, type) {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setURL(imgUrl)
+      .setEmoji('[Pic](https://cdn.discordapp.com/emojis/1530116170651271278.webp?size=1024&name=Pic&lossless=true)'), 
+
+    new ButtonBuilder()
+      .setCustomId(`refresh_img_${type}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('[download](https://cdn.discordapp.com/emojis/1543006568683933796.webp?size=1024&animated=true&name=download&lossless=true)'), 
+
+    new ButtonBuilder()
+      .setCustomId('delete_img_msg')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('[Exit](https://cdn.discordapp.com/emojis/1543951237190258779.webp?size=1024&name=Exit&lossless=true)') 
+  );
+
+  return { content: imgUrl, components: [row] };
+}
 // ----------------------------------------------------
-// 3. حدث التشغيل ونظام الصور التلقائي
+// 3. حدث التشغيل ونظام الصور التلقائي كل 10 دقائق
 // ----------------------------------------------------
 client.once('ready', async () => {
   console.log(`🟢 تم تشغيل البوت بنجاح: ${client.user.tag}`);
@@ -143,54 +169,47 @@ client.once('ready', async () => {
 
   // إرسال الصور تلقائياً كل 10 دقائق
   setInterval(async () => {
-    // 1. صور عيال
     if (BOY_CHANNEL_ID && BOY_CHANNEL_ID !== 'ضع_أيدي_روم_صور_العيال_هنا') {
       const ch = client.channels.cache.get(BOY_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('boy');
-        if (imgUrl) ch.send(createImageMessage('📷 صورة اليوم (شباب)', imgUrl, 'boy')).catch(() => {});
+        if (imgUrl) ch.send(createImageMessage(imgUrl, 'boy')).catch(() => {});
       }
     }
 
-    // 2. صور بنات
     if (GIRL_CHANNEL_ID && GIRL_CHANNEL_ID !== 'ضع_أيدي_روم_صور_البنات_هنا') {
       const ch = client.channels.cache.get(GIRL_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('girl');
-        if (imgUrl) ch.send(createImageMessage('📷 صورة اليوم (بنات)', imgUrl, 'girl')).catch(() => {});
+        if (imgUrl) ch.send(createImageMessage(imgUrl, 'girl')).catch(() => {});
       }
     }
 
-    // 3. صور أنمي
     if (ANIME_CHANNEL_ID && ANIME_CHANNEL_ID !== 'ضع_أيدي_روم_صور_الأنمي_هنا') {
       const ch = client.channels.cache.get(ANIME_CHANNEL_ID);
       if (ch) {
         const imgUrl = await getRandomImage('anime');
-        if (imgUrl) ch.send(createImageMessage('🎌 صورة اليوم (أنمي)', imgUrl, 'anime')).catch(() => {});
+        if (imgUrl) ch.send(createImageMessage(imgUrl, 'anime')).catch(() => {});
       }
     }
   }, 10 * 60 * 1000);
 });
 
 // ----------------------------------------------------
-// 4. حدث الترحيب عند دخول عضو جديد
+// 4. حدث الترحيب التلقائي (نص منسق + صورة مدمجة بالأفاتار)
 // ----------------------------------------------------
 client.on('guildMemberAdd', async (member) => {
   if (!WELCOME_CHANNEL_ID || WELCOME_CHANNEL_ID === 'ضع_أيدي_روم_الترحيب_هنا') return;
   const welcomeChannel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!welcomeChannel) return;
 
-  const file = new AttachmentBuilder('./welcome.png');
+  const buffer = await createWelcomeCard(member);
+  if (!buffer) return;
 
-  const embed = new EmbedBuilder()
-    .setTitle('✨ مرحباً بك في السيرفر!')
-    .setDescription(`أهلاً بك يا ${member} في **${member.guild.name}**، نورت السيرفر! 🌹`)
-    .setColor('#2b2d31')
-    .setImage('attachment://welcome.png')
-    .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
-    .setTimestamp();
+  const file = new AttachmentBuilder(buffer, { name: 'welcome-image.png' });
+  const welcomeText = `*Welcome ${member} .\n# ≀ rush server .. built for unique profiles*`;
 
-  welcomeChannel.send({ content: `${member}`, embeds: [embed], files: [file] }).catch(() => {});
+  welcomeChannel.send({ content: welcomeText, files: [file] }).catch(() => {});
 });
 
 // ----------------------------------------------------
@@ -251,7 +270,7 @@ client.on('messageCreate', async (message) => {
       const msg = await message.channel.send(`🗑️ تم حذف **${deleted.size}** رسالة بنجاح.`);
       setTimeout(() => msg.delete().catch(() => {}), 3000);
     } catch (err) {
-      message.channel.send('❌ تعذر حذف بعض الرسائل (ربما مرت عليها أكثر من 14 يومًا).');
+      message.channel.send('❌ تعذر حذف بعض الرسائل.');
     }
   }
 
@@ -284,53 +303,6 @@ client.on('messageCreate', async (message) => {
 
     message.channel.send({ embeds: [embed] });
   }
-
-  if (command === 'role') {
-    if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return;
-    const member = message.mentions.members.first();
-    const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[1]);
-
-    if (!member || !role) return message.reply('⚠️ الاستخدام: `!role @المستخدم @الرول`');
-
-    if (member.roles.cache.has(role.id)) {
-      await member.roles.remove(role);
-      message.reply(`✅ تم سحب رول **${role.name}** من ${member}.`);
-    } else {
-      await member.roles.add(role);
-      message.reply(`✅ تم إعطاء رول **${role.name}** لـ ${member}.`);
-    }
-  }
-
-  if (command === 'jail') {
-    if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
-    const member = message.mentions.members.first();
-    if (!member) return message.reply('⚠️ يرجى تحديد الشخص.');
-
-    await member.timeout(24 * 60 * 60 * 1000, 'سجن إداري').catch(console.error);
-    message.reply(`🔒 تم سجن ${member} لمدة 24 ساعة.`);
-  }
-
-  if (command === 'timeout') {
-    if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
-    const member = message.mentions.members.first();
-    const minutes = parseInt(args[1]);
-
-    if (!member || !minutes) return message.reply('⚠️ الاستخدام: `!timeout @المستخدم عدد_الدقائق`');
-
-    await member.timeout(minutes * 60 * 1000).catch(console.error);
-    message.reply(`⏳ تم إعطاء تايم أوت لـ ${member} لمدة **${minutes}** دقيقة.`);
-  }
-
-  if (command === 'ban') {
-    if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
-    const member = message.mentions.members.first();
-    const reason = args.slice(1).join(' ') || 'بدون سبب';
-
-    if (!member) return message.reply('⚠️ يرجى تحديد الشخص.');
-
-    await member.ban({ reason }).catch(console.error);
-    message.reply(`🔨 تم حظر ${member.user.tag}. السبب: ${reason}`);
-  }
 });
 
 // ----------------------------------------------------
@@ -340,28 +312,28 @@ client.on('interactionCreate', async (interaction) => {
   
   if (interaction.isButton()) {
 
-    // زر تغيير الصورة فوراً
+    // زر تغيير الصورة فوراً (🔄)
     if (interaction.customId.startsWith('refresh_img_')) {
       const type = interaction.customId.replace('refresh_img_', '');
       await interaction.deferUpdate();
       const newImgUrl = await getRandomImage(type);
       if (newImgUrl) {
-        const title = type === 'boy' ? '📷 صورة اليوم (شباب)' : type === 'girl' ? '📷 صورة اليوم (بنات)' : '🎌 صورة اليوم (أنمي)';
-        const msgData = createImageMessage(title, newImgUrl, type);
-        await interaction.editReply(msgData);
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setLabel('📥').setStyle(ButtonStyle.Link).setURL(newImgUrl),
+          new ButtonBuilder().setCustomId(`refresh_img_${type}`).setLabel('🔄').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('delete_img_msg').setLabel('🗑️').setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.editReply({ content: newImgUrl, components: [row] });
       }
       return;
     }
 
-    // زر حذف الصورة
+    // زر حذف الصورة (🗑️)
     if (interaction.customId === 'delete_img_msg') {
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-        return interaction.reply({ content: '❌ ليس لديك صلاحية حذف هذه الصورة.', ephemeral: true });
-      }
       return interaction.message.delete().catch(() => {});
     }
 
-    // أزرار التذاكر والتقديم
+    // الأزرار الخاصة بالتذاكر والتقديم
     if (interaction.customId === 'open_support_ticket') {
       const modal = new ModalBuilder()
         .setCustomId('support_reason_modal')
@@ -382,7 +354,7 @@ client.on('interactionCreate', async (interaction) => {
         .setCustomId('apply_form_modal')
         .setTitle('استمارة التقديم على الإدارة');
 
-      const nameInput = new TextInputBuilder().setCustomId('apply_name').setLabel('الاسم والعمر').setStyle(TextInputStyle.Short).setRequired(true);
+      const nameInput = new TextInputBuilder().setCustomId('apply_name').setLabel('الاسم والعمر الدوله').setStyle(TextInputStyle.Short).setRequired(true);
       const expInput = new TextInputBuilder().setCustomId('apply_exp').setLabel('خبراتك الإدارية السابقة').setStyle(TextInputStyle.Paragraph).setRequired(true);
       const timeInput = new TextInputBuilder().setCustomId('apply_time').setLabel('عدد الساعات اليومية المتفرغ لها').setStyle(TextInputStyle.Short).setRequired(true);
 
@@ -429,7 +401,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   if (interaction.isModalSubmit()) {
-
     if (interaction.customId === 'support_reason_modal') {
       const reason = interaction.fields.getTextInputValue('ticket_reason');
       const user = interaction.user;
