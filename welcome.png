@@ -12,7 +12,7 @@
       .setDescription(`أهلاً بك يا ${member} في سيرفرنا، نتمنى لك قضاء وقت ممتع معنا! 🌹`)
       .setColor('#2b2d31')
       .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 })) // صورة العضو مصغرة وأنيقة
-      .setImage('attachment://welcome.png') // ربط الصورة المحلية بالإمبد
+      .setImage('attachment://welcome.png') 
       .setTimestamp();
 
     message.channel.send({ content: `${member}`, embeds: [embed], files: [file] });
