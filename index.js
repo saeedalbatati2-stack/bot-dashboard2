@@ -42,7 +42,6 @@ app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 // ----------------------------------------------------
 const PREFIX = '!';
 const VOICE_CHANNEL_ID = '1561057768834867371'; // أيدي الروم الصوتي
-const APPLY_LOG_CHANNEL_ID = 'ضع_أيدي_روم_استلام_التقديمات_هنا'; // أيدي روم استلام التقديمات
 
 // ----------------------------------------------------
 // 3. حدث التشغيل والدخول الصوتي
@@ -52,7 +51,7 @@ client.once('ready', async () => {
 
   client.user.setPresence({
     activities: [{
-      name: '24/7 Voice & Management',
+      name: '24/7 Voice & Support',
       type: ActivityType.Streaming,
       url: 'https://www.twitch.tv/discord'
     }],
@@ -100,7 +99,7 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // 1. أمر حذف الرسائل المحسن والمصلح (!clear <العدد>)
+  // 1. أمر حذف الرسائل (!clear <العدد>)
   if (command === 'clear') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       return message.reply('❌ ليس لديك صلاحية حذف الرسائل.');
@@ -111,7 +110,6 @@ client.on('messageCreate', async (message) => {
       return message.reply('⚠️ يرجى تحديد عدد من 1 إلى 100.');
     }
 
-    // حذف رسالة الأمر نفسها أولاً لمنع المشاكل
     await message.delete().catch(() => {});
 
     try {
@@ -123,36 +121,36 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // 2. أمر لوحة التكت (!ticket)
+  // 2. أمر لوحة التكت والتقديم المدمجة (!ticket)
   if (command === 'ticket') {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
     
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('open_ticket_modal').setLabel('🎫 فتح تكت').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId('open_support_ticket').setLabel('🎫 الدعم والمساعدة').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('open_apply_ticket').setLabel('📝 التقديم على الإدارة').setStyle(ButtonStyle.Success)
     );
 
     const embed = new EmbedBuilder()
-      .setTitle('مركز الدعم والمساعدة')
-      .setDescription('ضغطك على الزر بالأسفل يتيح لك فتح تذكرة خاصة والتواصل المباشر مع طاقم الإدارة.')
+      .setTitle('مركز الدعم والتقديمات')
+      .setDescription('يرجى اختيار القسم المناسب من الأسفل لفتح تذكرة خاصة والتواصل مع الإدارة.')
       .setColor('#2b2d31');
 
     message.channel.send({ embeds: [embed], components: [row] });
   }
 
-  // 3. أمر لوحة التقديم (!apply)
-  if (command === 'apply') {
-    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('start_apply_modal').setLabel('📝 التقديم على الإدارة').setStyle(ButtonStyle.Success)
-    );
+  // 3. أمر الترحيب (!welcome @مستخدم)
+  if (command === 'welcome') {
+    if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
+    const member = message.mentions.members.first() || message.member;
 
     const embed = new EmbedBuilder()
-      .setTitle('الانضمام للطاقم الإداري')
-      .setDescription('انقر على الزر بالأسفل لتعبئة استمارة التقديم على الإدارة.')
-      .setColor('#2b2d31');
+      .setTitle('✨ مرحباً بك في السيرفر!')
+      .setDescription(`أهلاً بك يا ${member} في سيرفرنا، نتمنى لك قضاء وقت ممتع معنا! 🌹`)
+      .setColor('#2b2d31')
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+      .setImage('PASTE_IMAGE_URL_HERE'); // ضع رابط الصورة المباشر هنا
 
-    message.channel.send({ embeds: [embed], components: [row] });
+    message.channel.send({ content: `${member}`, embeds: [embed] });
   }
 
   // 4. أمر الإمبد (!embed العنوان | الوصف)
@@ -187,7 +185,7 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // 6. أمر السجن/العزل (!jail @مستخدم)
+  // 6. أمر السجن (!jail @مستخدم)
   if (command === 'jail') {
     if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
     const member = message.mentions.members.first();
@@ -230,15 +228,15 @@ client.on('interactionCreate', async (interaction) => {
   // --- A. الأزرار (Buttons) ---
   if (interaction.isButton()) {
 
-    // فتح نموذج سبب التكت
-    if (interaction.customId === 'open_ticket_modal') {
+    // 1. زر فتح تذكرة دعم
+    if (interaction.customId === 'open_support_ticket') {
       const modal = new ModalBuilder()
-        .setCustomId('ticket_reason_modal')
+        .setCustomId('support_reason_modal')
         .setTitle('سبب فتح التذكرة');
 
       const reasonInput = new TextInputBuilder()
         .setCustomId('ticket_reason')
-        .setLabel('اكتب سبب فتح التذكرة أو الموضوع')
+        .setLabel('اكتب سبب فتح التذكرة')
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true);
 
@@ -246,7 +244,25 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // زر إغلاق وحفظ التكت
+    // 2. زر فتح تذكرة تقديم على الإدارة
+    if (interaction.customId === 'open_apply_ticket') {
+      const modal = new ModalBuilder()
+        .setCustomId('apply_form_modal')
+        .setTitle('استمارة التقديم على الإدارة');
+
+      const nameInput = new TextInputBuilder().setCustomId('apply_name').setLabel('الاسم والعمر').setStyle(TextInputStyle.Short).setRequired(true);
+      const expInput = new TextInputBuilder().setCustomId('apply_exp').setLabel('خبراتك الإدارية السابقة').setStyle(TextInputStyle.Paragraph).setRequired(true);
+      const timeInput = new TextInputBuilder().setCustomId('apply_time').setLabel('عدد الساعات اليومية المتفرغ لها').setStyle(TextInputStyle.Short).setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(nameInput),
+        new ActionRowBuilder().addComponents(expInput),
+        new ActionRowBuilder().addComponents(timeInput)
+      );
+      return interaction.showModal(modal);
+    }
+
+    // 3. زر إغلاق التكت
     if (interaction.customId === 'close_ticket_modal') {
       const modal = new ModalBuilder()
         .setCustomId('ticket_close_reason_modal')
@@ -262,25 +278,7 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // فتح نموذج التقديم
-    if (interaction.customId === 'start_apply_modal') {
-      const modal = new ModalBuilder()
-        .setCustomId('apply_modal')
-        .setTitle('استمارة التقديم على الإدارة');
-
-      const nameInput = new TextInputBuilder().setCustomId('apply_name').setLabel('الاسم والعمر').setStyle(TextInputStyle.Short).setRequired(true);
-      const expInput = new TextInputBuilder().setCustomId('apply_exp').setLabel('خبراتك الإدارية السابقة').setStyle(TextInputStyle.Paragraph).setRequired(true);
-      const timeInput = new TextInputBuilder().setCustomId('apply_time').setLabel('عدد الساعات اليومية المتفرغ لها').setStyle(TextInputStyle.Short).setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(nameInput),
-        new ActionRowBuilder().addComponents(expInput),
-        new ActionRowBuilder().addComponents(timeInput)
-      );
-      return interaction.showModal(modal);
-    }
-
-    // أزرار قبول / رفض التقديم
+    // 4. أزرار قبول / رفض التقديم داخل التكت
     if (interaction.customId.startsWith('accept_apply_') || interaction.customId.startsWith('reject_apply_')) {
       const isAccept = interaction.customId.startsWith('accept_apply_');
       const userId = interaction.customId.replace(isAccept ? 'accept_apply_' : 'reject_apply_', '');
@@ -303,8 +301,8 @@ client.on('interactionCreate', async (interaction) => {
   // --- B. النماذج الإلكترونية (Modals Submit) ---
   if (interaction.isModalSubmit()) {
 
-    // 1. إنشاء روم التكت الفخم بعد كتابة السبب
-    if (interaction.customId === 'ticket_reason_modal') {
+    // 1. فتح تذكرة دعم بعد كتابة السبب
+    if (interaction.customId === 'support_reason_modal') {
       const reason = interaction.fields.getTextInputValue('ticket_reason');
       const user = interaction.user;
       const guild = interaction.guild;
@@ -322,65 +320,75 @@ client.on('interactionCreate', async (interaction) => {
       const timeString = `<t:${Math.floor(now.getTime() / 1000)}:T> (<t:${Math.floor(now.getTime() / 1000)}:R>)`;
 
       const embed = new EmbedBuilder()
-        .setTitle(`🎫 تذكرة رقم: ${ticketChannel.name}`)
-        .setDescription(`مرحباً بك ${user} في تذكرتك الخاصة، يسعدنا خدمتك!`)
+        .setTitle(`🎫 تذكرة دعم: ${user.username}`)
+        .setDescription(`مرحباً بك ${user} في تذكرتك، انتظر رد طاقم الدعم.`)
         .addFields(
-          { name: '👤 صاحب الشكوى / التكت:', value: `${user} (\`${user.id}\`)`, inline: true },
-          { name: '⏰ وقت الفتح بالثواني:', value: timeString, inline: true },
-          { name: '📌 سبب فتح التذكرة:', value: `\`\`\`${reason}\`\`\`` }
+          { name: '👤 صاحب التكت:', value: `${user} (\`${user.id}\`)`, inline: true },
+          { name: '⏰ وقت الفتح:', value: timeString, inline: true },
+          { name: '📌 سبب التذكرة:', value: `\`\`\`${reason}\`\`\`` }
         )
         .setColor('#2b2d31')
         .setThumbnail(user.displayAvatarURL({ dynamic: true }));
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق وحفظ التذكرة').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger)
       );
 
       await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [row] });
-      return interaction.reply({ content: `✅ تم فتح التذكرة بنجاح: ${ticketChannel}`, ephemeral: true });
+      return interaction.reply({ content: `✅ تم فتح تذكرة الدعم بنجاح: ${ticketChannel}`, ephemeral: true });
     }
 
-    // 2. إغلاق وحفظ التكت مع ذكر السبب
+    // 2. فتح تذكرة تقديم ورسالة الاستمارة بالداخل
+    if (interaction.customId === 'apply_form_modal') {
+      const name = interaction.fields.getTextInputValue('apply_name');
+      const exp = interaction.fields.getTextInputValue('apply_exp');
+      const time = interaction.fields.getTextInputValue('apply_time');
+      const user = interaction.user;
+      const guild = interaction.guild;
+
+      const ticketChannel = await guild.channels.create({
+        name: `apply-${user.username}`,
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+        ],
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('📝 طلب تقديم إداري')
+        .addFields(
+          { name: '👤 المتقدم:', value: `${user} (\`${user.id}\`)` },
+          { name: '👤 الاسم والعمر:', value: name },
+          { name: '💼 الخبرات الإدارية:', value: exp },
+          { name: '⏰ التفرغ اليومي:', value: time },
+          { name: '📌 حالة الطلب:', value: '⏳ قيد المراجعة' }
+        )
+        .setColor('#5865F2')
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+        .setTimestamp();
+
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`accept_apply_${user.id}`).setLabel('قبول').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`reject_apply_${user.id}`).setLabel('رفض').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
+      );
+
+      await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [actionRow] });
+      return interaction.reply({ content: `✅ تم إنشاء تذكرة التقديم بنجاح: ${ticketChannel}`, ephemeral: true });
+    }
+
+    // 3. إغلاق التكت مع السبب
     if (interaction.customId === 'ticket_close_reason_modal') {
       const closeReason = interaction.fields.getTextInputValue('ticket_close_reason');
       await interaction.reply({ content: `🔒 تم حفظ السبب: **${closeReason}**. جاري إغلاق التذكرة خلال 5 ثوانٍ...` });
       setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
     }
 
-    // 3. إرسال طلب التقديم لغرفة الإدارة مع أزرار القبول والرفض
-    if (interaction.customId === 'apply_modal') {
-      const name = interaction.fields.getTextInputValue('apply_name');
-      const exp = interaction.fields.getTextInputValue('apply_exp');
-      const time = interaction.fields.getTextInputValue('apply_time');
-
-      const logChannel = interaction.guild.channels.cache.get(APPLY_LOG_CHANNEL_ID);
-      if (!logChannel) return interaction.reply({ content: '❌ أيدي روم استلام التقديمات غير صحيح.', ephemeral: true });
-
-      const embed = new EmbedBuilder()
-        .setTitle('📥 تقديم إداري جديد')
-        .addFields(
-          { name: 'المتقدم:', value: `${interaction.user} (\`${interaction.user.id}\`)` },
-          { name: 'الاسم والعمر:', value: name },
-          { name: 'الخبرات الإدارية:', value: exp },
-          { name: 'التفرغ اليومي:', value: time },
-          { name: 'حالة الطلب:', value: '⏳ قيد المراجعة' }
-        )
-        .setColor('#5865F2')
-        .setTimestamp();
-
-      const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`accept_apply_${interaction.user.id}`).setLabel('قبول').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reject_apply_${interaction.user.id}`).setLabel('رفض').setStyle(ButtonStyle.Danger)
-      );
-
-      await logChannel.send({ embeds: [embed], components: [actionRow] });
-      return interaction.reply({ content: `✅ تم إرسال طلبك بنجاح، بالتوفيق!`, ephemeral: true });
-    }
-
-    // 4. معالجة قرار قبول أو رفض التقديم مع السبب والمنشن
+    // 4. معالجة قرار قبول أو رفض التقديم داخل التكت
     if (interaction.customId.startsWith('apply_decision_')) {
       const parts = interaction.customId.split('_');
-      const type = parts[2]; // accept or reject
+      const type = parts[2]; 
       const targetUserId = parts[3];
       const reason = interaction.fields.getTextInputValue('decision_reason');
 
@@ -391,16 +399,20 @@ client.on('interactionCreate', async (interaction) => {
       const oldEmbed = interaction.message.embeds[0];
       const updatedEmbed = EmbedBuilder.from(oldEmbed)
         .setColor(statusColor)
-        .spliceFields(4, 1, { name: 'حالة الطلب:', value: `${statusText} بواسطة ${interaction.user}` })
-        .addFields({ name: 'السبب:', value: reason });
+        .spliceFields(4, 1, { name: '📌 حالة الطلب:', value: `${statusText} بواسطة ${interaction.user}` })
+        .addFields({ name: '💬 السبب:', value: reason });
 
-      await interaction.update({ embeds: [updatedEmbed], components: [] });
+      await interaction.update({ embeds: [updatedEmbed], components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger)
+        )
+      ] });
 
-      // إرسال رسالة خاصة للمتقدم بالنتيجة والسبب
+      // إرسال رسالة خاصة للمتقدم بالنتيجة
       const targetMember = await interaction.guild.members.fetch(targetUserId).catch(() => null);
       if (targetMember) {
         targetMember.send({
-          content: `مرحباً ${targetMember}، تم **${isAccept ? 'قبول' : 'رفض'}** طلبك للتقديم على الإدارة في سيرفر **${interaction.guild.name}**.\n**السبب:** ${reason}`
+          content: `مرحباً ${targetMember}، تم **${isAccept ? 'قبول' : 'رفض'}** طلب تقديمك للإدارة.\n**السبب:** ${reason}`
         }).catch(() => {});
       }
     }
