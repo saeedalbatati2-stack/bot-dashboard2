@@ -1,15 +1,16 @@
-// 3. أمر الترحيب (!welcome @مستخدم)
-  if (command === 'welcome') {
-    if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-    const member = message.mentions.members.first() || message.member;
-
-    const embed = new EmbedBuilder()
-      .setTitle('✨ مرحباً بك في السيرفر!')
-      .setDescription(`أهلاً بك يا ${member} في سيرفرنا، نتمنى لك قضاء وقت ممتع معنا! 🌹`)
-      .setColor('#2b2d31')
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 })) // صورة العضو بحجم واضح
-      .setImage('https://lh3.googleusercontent.com/gg/AJWXcNcwRAb17O84E0jgXioP7yStB65-_8yAeJxsgUD2Z6WIadq4iDGsmpABL9fU6W7vvvAyuN7F6uLf1WElT8q4TrNxGbiju654kSUEsM7C-l_HtKfoxHNMOvWzw3mgewYHwgiZzVOoH1rNB0X5XUpF0uZk6gKstWt3dao_kL6s4N2T6WwaOqoSWBCkTDmgV1yhHaItoOtvpQXPkzGvyJ6kOKbybxUVb7iwCI_pTVUpDCQCh8bOsRq8rqPOA5LJTp3CiAWk4F-Y1gUJj-4NmBvmPwrKitFZfhQ1ngU') 
-      .setTimestamp();
-
-    message.channel.send({ content: `${member}`, embeds: [embed] });
+{
+  "name": "discord-bot",
+  "version": "1.0.0",
+  "description": "24/7 Discord Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.16.1",
+    "discord.js": "^14.14.1",
+    "express": "^4.19.2",
+    "sodium": "^3.0.2",
+    "libsodium-wrappers": "^0.7.13"
   }
+}
