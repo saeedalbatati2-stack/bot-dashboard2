@@ -39,7 +39,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
 // ----------------------------------------------------
-// 2. المتغيرات والتعريفات المهمة (ضع الأيديات هنا)
+// 2. المتغيرات والتعريفات المهمة
 // ----------------------------------------------------
 const PREFIX = '!';
 
@@ -49,7 +49,7 @@ let BOY_CHANNEL_ID = '1561058994120826900';
 let GIRL_CHANNEL_ID = '1561058648216698890';  
 let ANIME_CHANNEL_ID = '1561059067919859763'; 
 
-// دالة جلب صور عشوائية مجانية ومباشرة
+// دالة جلب صور عشوائية مباشرة ومضمونة
 async function getRandomImage(type) {
   try {
     if (type === 'anime') {
@@ -57,11 +57,6 @@ async function getRandomImage(type) {
       const data = await res.json();
       return data.url;
     } else if (type === 'boy') {
-      const res = await fetch('https://raw.githubusercontent.com/D3V-N1GHT/random-assets/main/boys.json').catch(() => null);
-      if (res && res.ok) {
-        const list = await res.json();
-        return list[Math.floor(Math.random() * list.length)];
-      }
       return `https://picsum.photos/800/1000?random=${Math.floor(Math.random() * 100000)}`;
     } else if (type === 'girl') {
       const res = await fetch('https://api.waifu.pics/sfw/neko');
@@ -74,7 +69,7 @@ async function getRandomImage(type) {
   }
 }
 
-// دالة إنشاء رسالة الصور مع الأزرار الثلاثة بالأيموجيات فقط
+// دالة إنشاء رسالة الصور مع الأزرار الثلاثة بالأيموجي
 function createImageMessage(imgUrl, type) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -139,7 +134,6 @@ client.once('ready', async () => {
   }
   connectToVoiceChannel();
 
-  // نظام النشر التلقائي للصور كل 10 دقائق
   setInterval(async () => {
     if (BOY_CHANNEL_ID && BOY_CHANNEL_ID !== 'ضع_أيدي_روم_صور_العيال_هنا') {
       const ch = client.channels.cache.get(BOY_CHANNEL_ID);
@@ -197,7 +191,32 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // أمر الترحيب اليدوي (!welcome @مستخدم)
+  // أمر النشر Info (مطابق لصورة 6)
+  if (command === 'info' || command === 'publish') {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
+    await message.delete().catch(() => {});
+
+    // إنشاء رابط دعوة دائم للروم الحالي أو السيرفر
+    let invite = await message.channel.createInvite({ maxAge: 0, maxUses: 0 }).catch(() => null);
+    let inviteLink = invite ? invite.url : `https://discord.gg/${message.guild.id}`;
+
+    const file = new AttachmentBuilder('./welcome.png');
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel(message.guild.name)
+        .setStyle(ButtonStyle.Link)
+        .setURL(inviteLink),
+      new ButtonBuilder()
+        .setCustomId('show_server_info')
+        .setLabel('Info')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('ℹ️')
+    );
+
+    return message.channel.send({ files: [file], components: [row] });
+  }
+
   if (command === 'welcome') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
     const member = message.mentions.members.first() || message.member;
@@ -215,7 +234,6 @@ client.on('messageCreate', async (message) => {
     message.channel.send({ content: `${member}`, embeds: [embed], files: [file] }).catch(() => {});
   }
 
-  // أوامر تحديد أيديات القنوات
   if (command === 'welcome-id') {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
     const targetChannel = message.mentions.channels.first() || message.guild.channels.cache.get(args[0]);
@@ -248,7 +266,6 @@ client.on('messageCreate', async (message) => {
     message.reply(`✅ تم تحديث روم صور الأنمي بنجاح: ${targetChannel}`);
   }
 
-  // أمر مسح الرسائل (!clear <العدد>)
   if (command === 'clear') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       return message.reply('❌ ليس لديك صلاحية حذف الرسائل.');
@@ -270,7 +287,6 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // أمر لوحة التذاكر والتقديم (!ticket)
   if (command === 'ticket') {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
     
@@ -287,7 +303,6 @@ client.on('messageCreate', async (message) => {
     message.channel.send({ embeds: [embed], components: [row] });
   }
 
-  // أمر الإمبد (!embed العنوان | الوصف)
   if (command === 'embed') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
     const content = args.join(' ');
@@ -310,7 +325,29 @@ client.on('interactionCreate', async (interaction) => {
   
   if (interaction.isButton()) {
 
-    // زر تغيير الصورة فوراً (🔄)
+    // عرض معلومات السيرفر عند الضغط على زر Info
+    if (interaction.customId === 'show_server_info') {
+      const owner = await interaction.guild.fetchOwner().catch(() => null);
+      const ownerMention = owner ? `${owner} (\`${owner.user.tag}\`)` : 'غير معروف';
+      
+      let invite = await interaction.channel.createInvite({ maxAge: 0, maxUses: 0 }).catch(() => null);
+      let inviteLink = invite ? invite.url : `https://discord.gg/${interaction.guild.id}`;
+
+      // تنسيق التاريخ والوقت الحالي
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      const formattedDate = now.toLocaleDateString('en-US', options);
+
+      const infoText = `### Publish Information[cite: 5]
+**Published by :** ${ownerMention}[cite: 5]
+**Type :** server[cite: 5]
+**Server :** ${interaction.guild.name}[cite: 5]
+**Invite link :** ${inviteLink}[cite: 5]
+**Published at :** ${formattedDate}[cite: 5]`;
+
+      return interaction.reply({ content: infoText, ephemeral: true });
+    }
+
     if (interaction.customId.startsWith('refresh_img_')) {
       const type = interaction.customId.replace('refresh_img_', '');
       await interaction.deferUpdate();
@@ -322,12 +359,10 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // زر حذف الصورة (🗑️)
     if (interaction.customId === 'delete_img_msg') {
       return interaction.message.delete().catch(() => {});
     }
 
-    // تفاعلات التذاكر والتقديمات
     if (interaction.customId === 'open_support_ticket') {
       const modal = new ModalBuilder()
         .setCustomId('support_reason_modal')
@@ -418,4 +453,94 @@ client.on('interactionCreate', async (interaction) => {
         .addFields(
           { name: '👤 صاحب التكت:', value: `${user} (\`${user.id}\`)`, inline: true },
           { name: '⏰ وقت الفتح:', value: timeString, inline: true },
-          { name: '📌 سبب التذكرة:', value: `\`\`\`${reason}\`\`\
+          { name: '📌 سبب التذكرة:', value: `\`\`\`${reason}\`\`\`` }
+        )
+        .setColor('#2b2d31')
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }));
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger)
+      );
+
+      await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [row] });
+      return interaction.reply({ content: `✅ تم فتح تذكرة الدعم بنجاح: ${ticketChannel}`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'apply_form_modal') {
+      const name = interaction.fields.getTextInputValue('apply_name');
+      const exp = interaction.fields.getTextInputValue('apply_exp');
+      const time = interaction.fields.getTextInputValue('apply_time');
+      const user = interaction.user;
+      const guild = interaction.guild;
+
+      const ticketChannel = await guild.channels.create({
+        name: `apply-${user.username}`,
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+        ],
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('📝 طلب تقديم إداري')
+        .addFields(
+          { name: '👤 المتقدم:', value: `${user} (\`${user.id}\`)` },
+          { name: '👤 الاسم والعمر:', value: name },
+          { name: '💼 الخبرات الإدارية:', value: exp },
+          { name: '⏰ التفرغ اليومي:', value: time },
+          { name: '📌 حالة الطلب:', value: '⏳ قيد المراجعة' }
+        )
+        .setColor('#5865F2')
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+        .setTimestamp();
+
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`accept_apply_${user.id}`).setLabel('قبول').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`reject_apply_${user.id}`).setLabel('رفض').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
+      );
+
+      await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [actionRow] });
+      return interaction.reply({ content: `✅ تم إنشاء تذكرة التقديم بنجاح: ${ticketChannel}`, ephemeral: true });
+    }
+
+    if (interaction.customId === 'ticket_close_reason_modal') {
+      const closeReason = interaction.fields.getTextInputValue('ticket_close_reason');
+      await interaction.reply({ content: `🔒 تم حفظ السبب: **${closeReason}**. جاري إغلاق التذكرة خلال 5 ثوانٍ...` });
+      setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+    }
+
+    if (interaction.customId.startsWith('apply_decision_')) {
+      const parts = interaction.customId.split('_');
+      const type = parts[2]; 
+      const targetUserId = parts[3];
+      const reason = interaction.fields.getTextInputValue('decision_reason');
+
+      const isAccept = type === 'accept';
+      const statusText = isAccept ? '🟢 تم القبول' : '🔴 تم الرفض';
+      const statusColor = isAccept ? '#57F287' : '#ED4245';
+
+      const oldEmbed = interaction.message.embeds[0];
+      const updatedEmbed = EmbedBuilder.from(oldEmbed)
+        .setColor(statusColor)
+        .spliceFields(4, 1, { name: '📌 حالة الطلب:', value: `${statusText} بواسطة ${interaction.user}` })
+        .addFields({ name: '💬 السبب:', value: reason });
+
+      await interaction.update({ embeds: [updatedEmbed], components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('close_ticket_modal').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger)
+        )
+      ] });
+
+      const targetMember = await interaction.guild.members.fetch(targetUserId).catch(() => null);
+      if (targetMember) {
+        targetMember.send({
+          content: `مرحباً ${targetMember}، تم **${isAccept ? 'قبول' : 'رفض'}** طلب تقديمك للإدارة.\n**السبب:** ${reason}`
+        }).catch(() => {});
+      }
+    }
+  }
+});
+
+client.login(process.env.TOKEN);
